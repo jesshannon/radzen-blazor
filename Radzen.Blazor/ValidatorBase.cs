@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Forms;
+using System.Globalization;
 
 namespace Radzen.Blazor
 {
@@ -11,6 +12,9 @@ namespace Radzen.Blazor
     /// </summary>
     public abstract class ValidatorBase : RadzenComponent, IRadzenFormValidator
     {
+        [Inject]
+        TooltipService TooltipService { get; set; }
+        
         /// <summary>
         /// Gets or sets the form which contains this validator.
         /// </summary>
@@ -54,6 +58,8 @@ namespace Radzen.Blazor
         protected ValidationMessageStore messages;
         private FieldIdentifier FieldIdentifier { get; set; }
 
+        ElementReference FieldReference { get; set; }
+        
         /// <inheritdoc />
         public override async Task SetParametersAsync(ParameterView parameters)
         {
@@ -125,10 +131,26 @@ namespace Radzen.Blazor
                 IsValid = Validate(component);
 
                 messages.Clear(component.FieldIdentifier);
-
+                
                 if (!IsValid)
                 {
                     messages.Add(component.FieldIdentifier, Text);
+
+                    if (Popup)
+                    {
+                        TooltipService.Open((component as RadzenComponent)?.Element ?? Element, ts => (__builder) =>
+                        {
+                            __builder.OpenElement(0, "div");
+                            __builder.AddContent(1, Text);
+                            __builder.CloseElement();
+                        }, new TooltipOptions()
+                        {
+                            CloseTooltipOnDocumentClick = false,
+                            Delay = 100,
+                            Duration = -1,
+                            CssClass = "rz-message rz-messages-error rz-message-popup"
+                        });
+                    }
                 }
 
                 EditContext?.NotifyValidationStateChanged();
@@ -169,10 +191,7 @@ namespace Radzen.Blazor
             if (Visible && !IsValid)
             {
                 builder.OpenElement(0, "div");
-                builder.AddAttribute(1, "style", Style);
-                builder.AddAttribute(2, "class", GetCssClass());
-                builder.AddMultipleAttributes(3, Attributes);
-                builder.AddContent(4, Text);
+                builder.AddElementReferenceCapture(5, (capture) => Element = capture);
                 builder.CloseElement();
             }
         }
